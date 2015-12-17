@@ -1,0 +1,789 @@
+<!doctype html>
+<html>
+    <head>
+	    <meta name="author" content="Yuchao" />
+	    <meta name="application-name" content="Ball_Game" />
+	    <meta name="generator" content="Coda_version_2.5.13" />
+        <title>Ball Game</title>
+        
+        <script type="text/javascript">
+	        var testing = false;
+            var len = 8;
+            var radius = 29;
+            var interVal = 80;
+            var wid = 640;
+            var canvas;
+            var context;
+            var movingColor;
+            var movingX;
+            var movingY;
+            var moved;
+            var clicked;
+            var boards = new Array(len);
+            var ballNum;
+            var totalScore;
+            var redoTimes;
+            var rdCleard; /* had a scoring alignment by a random ball */
+            var cleard;
+            var clearX; /* this is the position of a moved ball last time */
+            var clearY;
+            var clearColor;
+            var gameover;
+
+            var prevBds = new Array(len);
+            var prevBallNum;
+            var prevScore;
+            var prevClicked;
+            var prevMovingColor;
+            var prevMovingX;
+            var prevMovingY;
+            var prevCleard;
+            var prevClearX; /* this is the position of a moved ball last time */
+            var prevClearY;
+            var prevClearColor;
+            var prevRdCleard;
+            
+            var path;
+
+            for (var i = 0; i < len; i++) {
+                boards[i] = new Array(len);
+                prevBds[i] = new Array(len);
+                for (var j = 0; j < len; j++) {
+                    boards[i][j] = 0;
+                    prevBds[i][j] = 0;
+                }
+            }
+            
+            if (ballNum == len * len) {
+                gameOver();
+            }
+
+            function rdBalls(n) {
+	            if (ballNum + n <= len * len) {
+	                for (var i = 0; i < n; i++) {
+	                	rdBall();
+	                }
+                } else {
+	                gameOver();
+                }
+            }
+
+            function rdBall() { // try this.x this kind of varible
+                if (ballNum < len * len) {
+	                this.x = Math.floor(Math.random() * len);
+	                this.y = Math.floor(Math.random() * len);
+                    this.color = Math.floor(Math.random() * 6) + 1;
+	
+	                while (boards[this.x][this.y] != 0) {
+	                    this.x = Math.floor(Math.random() * len);
+	                    this.y = Math.floor(Math.random() * len);
+	                }
+	                
+	                theBall(this.x, this.y, this.color);
+					if (canClear(this.x, this.y, this.color, 123) > 4) {
+						rdCleard = true;
+					} else if (ballNum == len * len) {
+						gameOver();
+					}
+				} else {
+					if (canClear(this.x, this.y, this.color, 123) > 4) {
+						rdCleard = true;
+					} else {
+						gameOver();
+					}
+				}
+            }
+            
+            function theBall(x, y, color) {
+	            if (boards[x][y] == 0) {
+		            ball(x, y, color);
+	            	ballNum++;
+	            }
+            }
+
+            function ball(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                switch (color) {
+                case 1: // green
+                    context.fillStyle = '#66CDAA';
+                    boards[x][y] = 1;
+                    break;
+                case 2: // blue
+                    context.fillStyle = '#6495ED';
+                    boards[x][y] = 2;
+                    break;
+                case 3: // orange
+                    context.fillStyle = '#FF7F24';
+                    boards[x][y] = 3;
+                    break;
+                case 4: // red
+                    context.fillStyle = '#EE2C2C';
+                    boards[x][y] = 4;
+                    break;
+                case 5: // purple
+                    context.fillStyle = '#9B30FF';
+                    boards[x][y] = 5;
+                    break;
+                case 6: // cyan
+                    context.fillStyle = '#00EEEE';
+                    boards[x][y] = 6;
+                    break;
+                default:
+                    return;
+                }
+                context.beginPath();
+                context.arc(interVal / 2 * (2 * x + 1), interVal / 2 * (2 * y + 1), radius, 0, Math.PI * 2, true);
+                context.closePath();
+                context.fill();
+            }
+
+			function rmTheBall(x, y) {
+                boards[x][y] = 0;
+                context.fillStyle = 'white';
+                context.fillRect(x * interVal + 1, y * interVal + 1, interVal - 2, interVal - 2);
+			}
+
+            function rmBall(x, y) {
+                if (boards[x][y] != 0) {
+					rmTheBall(x, y);
+                    ballNum--;
+                }
+            }
+
+            function pathBall(x, y) {
+				context.fillStyle = '#deeded';
+                context.beginPath();
+                context.arc(interVal / 2 * (2 * x + 1), interVal / 2 * (2 * y + 1), 15, 0, Math.PI * 2, true);
+                context.closePath();
+                context.fill();
+            }
+
+			// when clicked a cell make it high light
+            function highLight(x, y, color) {
+				context.fillStyle = '#eeeeee';
+                context.fillRect(x * interVal + 1, y * interVal + 1, interVal - 2, interVal - 2);
+                ball(x, y, color);
+            }
+            
+            function gameOver() {
+	            if (redoTimes < 3) {
+					if (window.confirm("Gave over! You still have " + (3 - redoTimes)
+					 + " redo times, use it? \nClick cancel to start a new game.")) {
+						reDO();
+					} else {
+						drawNew();
+					}
+	            } else {
+		            gameover = true;
+					if (window.confirm("Gave over! Wanna a new game?")) {
+						drawNew();
+					}
+				}
+            }
+
+			function init() {
+				lines();					
+				ballNum = 0;
+				movingColor = 0;
+				moved = false;
+				clicked = false;
+				cleard = false;
+				rdCleard = false;
+				totalScore = 0;
+				redoTimes = 0;
+				gameover = false;
+				updateScore();
+				
+				if (testing) {
+					ball(2, 2, 3);
+					ball(5, 3, 4);
+					ball(5, 4, 5);
+					ball(5, 5, 5);
+					ball(2, 5, 2);
+					ball(3, 2, 2);
+					ball(4, 2, 6);
+					ball(5, 2, 1);
+				} else {
+					rdBalls(3);
+				}
+			}
+				
+            function drawBoard() {
+                canvas = document.getElementById("board"); 
+                if (canvas.getContext) {
+                    context = canvas.getContext("2d");
+					init();
+                }
+            }
+
+            function lines() {
+                context.beginPath();
+                for (var i = 1; i < 9; i++) {
+                    context.moveTo(0, interVal * i);
+                    context.lineTo(wid, interVal * i);
+                    context.moveTo(interVal * i, 0);
+                    context.lineTo(interVal * i, wid);
+                }
+                context.strokeStyle = '#0574da';
+                context.stroke();
+                context.restore();
+                context.closePath();
+            }
+
+			function clearAll() {
+	            for (var i = 0; i < len; i++) {
+		            for (var j = 0; j < len; j++) {
+						rmBall(i, j);
+					}
+				}
+			}
+            
+            function restart() {
+				if (window.confirm("Want a new game?")) {
+					drawNew();
+				} else {
+					return;
+				}
+            }
+            
+            function drawNew() { 
+	            location.reload();
+            }
+            
+            function redo() {
+	            if (prevScore != undefined && moved == true) {
+		            if (redoTimes < 3) {
+						if (window.confirm("After this redo you still have " + (3 - redoTimes - 1) + " redo times")) {
+							reDO();
+						}
+					} else {
+						alert("You have at most 3 redo times");
+					}
+				}
+            }
+            
+            function reDO() {
+	            clearAll();
+	            for (var i = 0; i < len; i++) {
+		            for (var j = 0; j < len; j++) {
+						var t = prevBds[i][j];
+						if (t > 0) {
+							theBall(i, j, t);
+						}
+					}
+				}
+	            cleard = prevCleard;
+				clearX = prevClearX;
+	            clearY = prevClearY;
+	            clearColor = prevClearColor;
+	            rdCleard = prevRdCleard;
+				totalScore = prevScore;
+				clicked = prevClicked;
+				movingColor = prevMovingColor;
+				movingX = prevMovingX;
+				movingY = prevMovingY;
+				moved = false;
+				updateScore();
+				redoTimes++;
+            }
+
+            function hashXY(x, y) {
+				return (x + parseFloat("0." + y.toString()));
+            }
+            
+            function pos(x, y, parent) {
+	            this.x = x;
+	            this.y = y;
+	            this.parent = parent;
+            }
+
+            function vld(x, y) {
+	            return x < 8 && y < 8 && x >=0 && y >= 0 && boards[x][y] == 0;
+            }
+            
+            function getDis(x1, y1, x2, y2) {
+	            return Math.abs(x1 - x2) + Math.abs(y1 - y2);
+            }
+
+
+            function _canMove(x, y) {
+	            // A* algorithm from
+	            // http://www.gamedev.net/page/resources/_/technical/artificial-intelligence/a-pathfinding-for-beginners-r2003
+	            var t = null;
+                var visited = new Object();
+                var open = new Object();
+				var q = new Array();
+                var found = false;
+				q.push(new pos(movingX, movingY, null));
+				open[hashXY(movingX, movingY)] = null;
+
+				while (q != "") {
+					t = q.shift();
+					var tx = t.x
+					var ty = t.y;
+					delete open[hashXY(tx, ty)];
+					visited[hashXY(tx, ty)] = null;
+					if (tx == x && ty == y) {
+						found = true;
+						break;
+					} else {
+						var rf = hashXY(tx + 1, ty);
+						var lf = hashXY(tx - 1, ty);
+						var uf = hashXY(tx, ty - 1);
+						var df = hashXY(tx, ty + 1);
+						var gOld = getDis(tx, ty, movingX, movingY);
+						if (!(rf in visited)) { // right
+							if (vld(tx + 1, ty) && !(rf in open)) {
+								q.push(new pos(tx + 1, ty, t));
+								open[hashXY(tx + 1, ty)] = null;
+							} else if (rf in open) {
+								if (getDis(tx + 1, ty, movingX, movingY) < gOld) {
+									pos(tx + 1, ty, t);
+								}
+							}
+						}
+						if (!(df in visited)) { // down
+							if (vld(tx, ty + 1) && !(df in open)) {
+								q.push(new pos(tx, ty + 1, t));
+								open[hashXY(tx, ty + 1)] = null;
+							} else if (df in open) {
+								if (getDis(tx, ty + 1, movingX, movingY) < gOld) {
+									pos(tx, ty + 1, t);
+								}
+							}
+						}
+						if (!(lf in visited)) { // left
+							if (vld(tx - 1, ty) && !(lf in open)) {
+								q.push(new pos(tx - 1, ty, t));
+								open[hashXY(tx - 1, ty)] = null;
+							} else if (lf in open) {
+								if (getDis(tx - 1, ty, movingX, movingY) < gOld) {
+									pos(tx - 1, ty, t);
+								}
+							}
+						}
+						if (!(uf in visited)) { // up
+							if (vld(tx, ty - 1) && !(uf in open)) {
+								q.push(new pos(tx, ty - 1, t));
+								open[hashXY(tx, ty - 1)] = null;
+							} else if (uf in open) {
+								if (getDis(tx, ty - 1, movingX, movingY) < gOld) {
+									pos(tx, ty - 1, t);
+								}
+							}
+						}
+					}
+				}
+				path = t;
+				if (found) {
+					return true;
+				} else {
+					return false;
+				}
+            }
+
+            function _move(e) {
+	            // get the absolute cell position of coordinate x and y
+				var rect = canvas.getBoundingClientRect(); 
+                var xc = e.clientX;
+                var yc = e.clientY;
+                var x = parseInt((xc - 6 - rect.left) / interVal);
+                var y = parseInt((yc - 8 - rect.top) / interVal);
+                var color = boards[x][y];
+                if (color != 0) {
+	                if (clicked) {
+		                // to clear the highlight after re-click a ball
+			            context.fillStyle = 'white';
+			            context.fillRect(movingX * interVal + 1, movingY * interVal + 1, interVal - 2, interVal - 2);
+		                ball(movingX, movingY, movingColor);
+	                }
+	                if (moved) {
+		                // to clear the highlight after moving a ball
+			            context.fillStyle = 'white';
+			            context.fillRect(clearX * interVal + 1, clearY * interVal + 1, interVal - 2, interVal - 2);
+			            if (cleard == false || (rdCleard == true && boards[clearX][clearY] != 0)) {
+		                	ball(clearX, clearY, clearColor);
+		                }
+					}
+	                // if clicking a ball
+                    highLight(x, y, color);
+                    clicked = true;
+                    moved = false;
+                    movingColor = color;
+                    movingX = x;
+                    movingY = y;
+					document.getElementById("test").innerHTML = "";
+                } else if ((!gameover) && color == 0 && clicked) {
+	                // if already clicked a ball before, and clicking empty space
+                    if (_canMove(x, y)) {
+                        document.getElementById("test").innerHTML = "";
+			            for (var i = 0; i < len; i++) {
+				            for (var j = 0; j < len; j++) {
+								prevBds[i][j] = boards[i][j];
+							}
+						}
+	                    prevBallNum = ballNum;
+	                    prevScore = totalScore;
+			            prevClicked = clicked;
+			            prevMovingColor = movingColor;
+			            prevMovingX = movingX;
+			            prevMovingY = movingY;
+			            prevCleard = cleard;
+			            prevClearX = clearX;
+			            prevClearY = clearY;
+			            prevClearColor = clearColor;
+			            prevRdCleard = rdCleard;
+
+                        rmTheBall(movingX, movingY);
+                        moved = true;
+                        clicked = false;
+						cleard = false;
+						rdCleard = false;
+                        // following three variables are global actually 
+                        clearX = x;
+                        clearY = y;
+                        clearColor = movingColor;
+						
+						// show the path in animation
+						var dsts = 0; // to record the distance, also for setTimeout()
+						var showInterval = 60;
+						var show = new Array();
+						var tmp = path.parent;
+						while (tmp.parent != null) { // push the path node into an array
+							show.push(tmp);
+							tmp = tmp.parent;
+						}
+						
+						while (show.length != 0) { // show the path in the above array by draw balls 
+							tmp = show.pop();
+							setTimeout(pathBall, dsts * showInterval + 20, tmp.x, tmp.y);
+							setTimeout(rmTheBall, showInterval * (dsts + 3), tmp.x, tmp.y);
+							dsts = dsts + 1;
+						}
+
+						boards[x][y] = movingColor; // "setTimeout" will make this assignment very late, in "canClear" it will not work
+						setTimeout(highLight, dsts * showInterval + 40, x, y, movingColor);
+                        if (canClear(x, y, movingColor, dsts * showInterval + 150) < 5) {
+	                        if (ballNum < len * len - 1) {
+		                        setTimeout(rdBalls, showInterval * (dsts + 3), 3);
+	                    	} else {
+		                        gameOver();
+		                        return;
+	            			}
+	                        if (ballNum == len * len) {
+		                        setTimeout(gameOver, showInterval * (dsts + 3));
+		                        return;
+	                        }
+	                    }
+                    } else {
+                        document.getElementById("test").innerHTML = "can not move";
+                    }
+                }
+            }
+            
+            function canClear(x, y, color, time) {
+	            var hNum = 0;
+	            var vNum = 0;
+	            var hStart = 0;
+	            var vStart = 0;
+	            var checkedH = true;
+	            var checkedV = true;
+	            var rmH = false;
+	            var rmV = false;
+	            for (var i = 0; i < len; i++) {
+		            // check horizontally if did not find scoring alignment
+		            if (boards[x][i] == color && checkedH == true) {
+			            // set start position of scoring alignment
+			            if (i == 0) {
+				            hStart = 0;
+			            }
+			            if (i > 0 && boards[x][i - 1] != color) {
+				            hStart = i;
+				        }
+				        // if finded one same color ball then check all the balls next to it
+			            for (var j = i; j < len; j++) {
+				            if (boards[x][j] == color) {
+					            // if this ball is the same color, begin counting
+				            	hNum++;
+				            	// if next ball is not same color, check the number of alignment balls
+				            	if ((j + 1 < len && boards[x][j + 1] != color) || (j + 1 == len)) {
+					            	if (hNum > 4) {
+						            	// if more than 5 or equals to 5 we get it 
+						            	rmH = true; // can clear horizontally
+										checkedH = false; // if cleared check h no more
+						            	break;
+					            	} else { 
+						            	// else we set number to zero and set i to the last position 
+						            	// to optimize the running time
+						            	hNum = 0;
+						            	i = j;
+					            	}
+				            	}
+				            } else {
+					            // if not the same color directly break
+					            if (hNum < 5) {
+						            hNum = 0;
+					            }
+					            i = j;
+					            break;
+				            }
+			            }
+		            }
+				}
+	            for (var i = 0; i < len; i++) {
+		            // check vertically if did not find scoring alignment
+		            if (boards[i][y] == color && checkedV == true) {
+			            // set start position of scoring alignment
+			            if (i == 0) {
+				            vStart = 0;
+			            }
+			            if (i > 0 && boards[i - 1][y] != color) {
+				            vStart = i;
+			            }
+				        // if finded one same color ball then check all the balls next to it
+			            for (var j = i; j < len; j++) {
+				            if (boards[j][y] == color) {
+					            // if this ball is the same color, begin counting
+					            vNum++;
+				            	// if next ball is not same color, check the number of alignment balls
+					            if ((j + 1 < len && boards[j + 1][y] != color) || (j + 1 == len)) {
+						            if (vNum > 4) {
+						            	// if more than 5 or equals to 5 we get it 
+							            rmV = true; // can clear vertically
+										checkedV = false; // if cleared check v no more
+							            break;
+						            } else {
+						            	// else we set number to zero and set i to the last position 
+						            	// to optimize the running time
+							            vNum = 0;
+							            i = j;
+						            }
+					            }
+				            } else {
+					            // if not the same color directly break
+					            if (vNum < 5) {
+						            vNum = 0;
+					            }
+					            i = j;
+					            break;
+				            }
+			            }
+		            }
+	            }
+	            if (rmH) {
+		            // if we can remove horizontally just do it
+		            cleard = true;
+	            	for (var t = hStart; t < hStart + hNum; t++) {
+		            	setTimeout(rmBall, time, x, t);
+	            	}
+	            }
+	            if (rmV) {
+		            // if we can remove vertically just do it
+		            cleard = true;
+	            	for (var t = vStart; t < vStart + vNum; t++) {
+		            	setTimeout(rmBall, time, t, y);
+	            	}
+	            }
+
+	            // return the amount of scoring alignment balls
+	            if (hNum < 5 && vNum < 5) {
+		            return 0;
+	            } else if (hNum > 4 && vNum < 5) {
+		            totalScore += hNum;
+		            updateScore();
+		            return hNum;
+	            } else if (hNum < 5 && vNum > 4) {
+		            totalScore += vNum;
+		            updateScore();
+		            return vNum;
+	            } else {
+		            totalScore += hNum + vNum - 1;
+		            updateScore();
+		            return hNum + vNum - 1;
+	            }
+            }
+
+			function updateScore() {
+				document.getElementById("nowScore").innerHTML = totalScore;
+                var high = getCookie('high');
+                if (high != null && high != "") {
+	                var tmpNow = parseInt(totalScore);
+	                var tmpHigh = parseInt(high);
+	                if (tmpHigh >= tmpNow) {
+		                document.getElementById("highScore").innerHTML = high;
+	                } else {
+		                document.getElementById("highScore").innerHTML = totalScore;
+                        setCookie('high', totalScore, 60);
+	                }
+                } else {
+					document.getElementById("highScore").innerHTML = totalScore;
+                    if (totalScore != null && totalScore != "") {
+                        setCookie('high', totalScore, 60);
+                    }
+                }
+			}
+			
+			// copyright from w3shcool, http://www.w3school.com.cn/js
+            function getCookie(c_name) {
+                if (document.cookie.length > 0) {
+                    c_start = document.cookie.indexOf(c_name + "=");
+                    if (c_start != -1) {
+                        c_start = c_start + c_name.length + 1;
+                        c_end = document.cookie.indexOf(";", c_start);
+                        if (c_end == -1) c_end = document.cookie.length;
+                        return unescape(document.cookie.substring(c_start, c_end));
+                    }
+                }
+                return "";
+            }
+
+			// copyright from w3shcool, http://www.w3school.com.cn/js
+            function setCookie(c_name, value, expiredays) {
+                var exdate = new Date();
+                exdate.setDate(exdate.getDate() + expiredays);
+                document.cookie = c_name + "=" + escape(value) + ((expiredays == null) ? "" : ";expires=" + exdate.toGMTString());
+            }
+        </script>
+	</head>
+
+    <body onload="drawBoard()">
+		<div id="boards">
+	        <canvas id="board" width=640 height=640 onclick="_move(event)">not supporting with canvas</canvas>
+			<div id="score">
+	            <table align="center">
+	                <tr height=52></tr>
+	                <tr><td align="center" id="scoreText" colspan="2">Score</td></tr>
+	                <tr><td align="center" id="nowScore" colspan="2"></td></tr>
+	                <tr height=21></tr>
+	                <tr><td align="center" id="highestText" colspan="2">Highest Score</td></tr>
+	                <tr><td align="center" id="highScore" colspan="2"></td></tr>
+	                <tr><td align="center" id="test" colspan="2"></td></tr>
+	                <tr><td align="center" id="test2" colspan="2"></td></tr>
+	                <tr>
+	                    <td align="center" id="redo" onmousedown="redo()"><a>redo</a></td>
+	                    <td align="center" id="restart" onmousedown="restart()"><a>restart</a></td>
+	                </tr>
+	            </table>
+	        </div>
+		</div>
+
+        <style type="text/css"> 
+	        div#boards {
+		        top: 24px;
+		        width: 100%;
+		        text-align: center;
+		        position: relative;
+		        margin: 0 auto;
+	        }
+	        
+            canvas#board { 
+	            position: relative; 
+				border: 5px solid #0574da;
+				border-radius: 9px;
+				display: inline;
+	        } 
+	        
+            div#score { 
+            	position: relative;
+            	top: -153px;
+            	left: -4px;
+            	width: 210px; 
+            	height: 340px;
+	            background-color: teal;
+				border: 3px solid #3fb3d9; 
+				border-radius: 6px;
+				margin: 0 auto;
+				display: inline-block;
+            }
+            
+            table tr td#scoreText {
+	            color: white; 
+	            font-size: 34px; 
+	            font-family: monospace;
+	            width: 211px;
+			}
+            table tr td#nowScore {
+	            color: #fdff6b; 
+	            font-size: 29px; 
+	            font-family: monospace;
+			}
+            table tr td#highestText {
+	            color: white; 
+	            font-size: 20px; 
+	            font-family: monospace;
+			}
+            table tr td#highScore {
+	            color: white; 
+	            font-size: 27px; 
+	            font-family: monospace;
+			}
+            table tr td#test {
+	            color: #64d3e3; 
+	            font-size: 16px; 
+	            font-family: monospace; 
+	            height: 20px;
+	            line-height: 20px;
+			}
+			table tr td#test2 {
+				height: 24px;
+			}
+            table tr td#redo {
+	            font-size: 24px; 
+	            font-family: sans-serif;
+	            background-color: #e5e56d;
+	            height: 63px;
+	            border-style: hidden;
+	            border-radius: 3px;
+	            cursor: pointer;
+				transition:background-color 0.3s ease;	/* words transition */
+				-moz-transition:background-color 0.3s; /* Firefox 4 */
+				-webkit-transition:background-color 0.3s; /* Safari and Chrome */
+				-o-transition:background-color 0.3s; /* Opera */
+            }
+            table tr td#redo:hover {
+	            font-size: 24px; 
+	            font-family: sans-serif;
+	            background-color: #f6f66d;
+	            height: 63px;
+	            border-style: hidden;
+	            border-radius: 3px;
+	            cursor: pointer;
+            }
+            table tr td#restart {
+	            font-size: 24px; 
+	            font-family: sans-serif;
+	            background-color: #72e05c;
+	            height: 63px;
+	            border-style: hidden;
+	            border-radius: 3px;
+	            cursor: pointer;
+				transition:background-color 0.3s ease;	/* words transition */
+				-moz-transition:background-color 0.3s; /* Firefox 4 */
+				-webkit-transition:background-color 0.3s; /* Safari and Chrome */
+				-o-transition:background-color 0.3s; /* Opera */
+	        }
+            table tr td#restart:hover {
+	            font-size: 24px; 
+	            font-family: sans-serif;
+	            background-color: #7cf963;
+	            height: 63px;
+	            border-style: hidden;
+	            border-radius: 3px;
+	            cursor: pointer;
+	        }
+	        
+			a:link 		{ color: #331818; text-decoration:none; }
+			a:visited 	{ color: #331818; text-decoration:none; }
+			a:hover 	{ color: #404142; text-decoration:none; }
+			a:active 	{ color: #4431b9; text-decoration:none; }
+			a { 
+				transition:color 0.3s ease;	/* words transition */
+				-moz-transition:color 0.3s; /* Firefox 4 */
+				-webkit-transition:color 0.3s; /* Safari and Chrome */
+				-o-transition:color 0.3s; /* Opera */
+			}
+        </style>
+    </body>
+</html>
