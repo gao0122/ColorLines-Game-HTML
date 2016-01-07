@@ -4,8 +4,41 @@
 	    <meta name="author" content="Yuchao" />
 	    <meta name="application-name" content="Ball_Game" />
 	    <meta name="generator" content="Coda_version_2.5.13" />
+	    <meta name="revised" content="latest edited time: Mon Jan 4 22:02:30 in Zhuhai" />
+	    <meta name="revised" content="bug, redo times can not be recorded while refreshing" />
+	    <meta name="revised" content="time: Mon Jan 4 22:02:30 in Zhuhai. bugs: 1>while 61 balls can not randomly make 3 balls and do scorint alignments. 2>while 61 balls, move, after clicking redo the clicked ball is not the origal color. 3>can not set cookies be null when game is over to re-start a new game " />
         <title>Ball Game</title>
-        
+	</head>
+
+    <body onload="drawBoard()">
+		<div id="boards">
+	        <canvas id="board" width=640 height=640 onclick="_move()">not supporting with canvas</canvas>
+			<div id="side">
+				<div id="help">
+					<img src="img/help.png" id="helpImg" />
+				</div>
+				<div id="score">
+		            <table align="center">
+		                <tr height=52></tr>
+		                <tr><td align="center" id="scoreText" colspan="2">Score</td></tr>
+		                <tr><td align="center" id="nowScore" colspan="2"></td></tr>
+		                <tr height=21><td id="mid"></td></tr>
+		                <tr><td align="center" id="highestText" colspan="2">Highest Score</td></tr>
+		                <tr><td align="center" id="highScore" colspan="2"></td></tr>
+		                <tr><td align="center" id="test" colspan="2"></td></tr>
+		                <tr><td align="center" id="test2" colspan="2"></td></tr>
+		                <tr>
+		                    <td align="center" id="redo" onmousedown="redo()"><a>redo</a></td>
+		                    <td align="center" id="restart" onmousedown="restart()"><a>restart</a></td>
+		                </tr>
+		            </table>
+		        </div>
+	        </div>
+	        <div>
+		        <p><br/>冀ICP备15006340号-1&nbsp;&nbsp;&nbsp;&nbsp;Copyright &copy; 2015 Yuchao. All rights reserved.</p>
+		        <p>&nbsp;</p>
+	        </div>
+		</div>
         <script type="text/javascript">
 	        var testing = false;
             var len = 8;
@@ -23,12 +56,14 @@
             var ballNum;
             var totalScore;
             var redoTimes;
+            var mostRodeTimes;
             var rdCleard; /* had a scoring alignment by a random ball */
             var cleard;
             var clearX; /* this is the position of a moved ball last time */
             var clearY;
             var clearColor;
             var gameover;
+			var forReloadCookie;
 
             var prevBds = new Array(len);
             var prevBallNum;
@@ -45,27 +80,43 @@
             
             var path;
 
-            for (var i = 0; i < len; i++) {
-                boards[i] = new Array(len);
-                prevBds[i] = new Array(len);
-                for (var j = 0; j < len; j++) {
-                    boards[i][j] = 0;
-                    prevBds[i][j] = 0;
-                }
+            var requestAnimationFrame = window.requestAnimationFrame || 
+            							window.webkitRequestAnimationFrame || 
+            							window.mozRequestAnimationFrame || 
+            							window.msRequestAnimationFrame || 
+            							window.oRequestAnimationFrame ||
+						                function(callback) {
+						                    return setTimeout(callback, 16);
+						                };
+						                
+			function initBoard() {
+	            for (var i = 0; i < len; i++) {
+	                boards[i] = new Array(len);
+	                prevBds[i] = new Array(len);
+	                for (var j = 0; j < len; j++) {
+	                    boards[i][j] = 0;
+	                    prevBds[i][j] = 0;
+	                }
+	            }
             }
             
-            if (ballNum == len * len) {
-                gameOver();
-            }
-
             function rdBalls(n) {
 	            if (ballNum + n <= len * len) {
 	                for (var i = 0; i < n; i++) {
 	                	rdBall();
 	                }
                 } else {
+                	forReloadCookie = false;
 	                gameOver();
                 }
+                setTimeout(checkOver, 345);
+            }
+            
+            function checkOver() {
+            	if (ballNum == len * len) {
+                	forReloadCookie = false;
+					gameOver();
+				}
             }
 
             function rdBall() { // try this.x this kind of varible
@@ -80,66 +131,165 @@
 	                }
 	                
 	                theBall(this.x, this.y, this.color);
-					if (canClear(this.x, this.y, this.color, 123) > 4) {
+					if (canClear(this.x, this.y, this.color, 243) > 4) {
+		                setCookie("board", boards, 60);
+		                setCookie("score", totalScore, 60);
+		                setCookie("redo", redoTimes, 60);
 						rdCleard = true;
-					} else if (ballNum == len * len) {
-						gameOver();
-					}
-				} else {
-					if (canClear(this.x, this.y, this.color, 123) > 4) {
-						rdCleard = true;
-					} else {
-						gameOver();
-					}
-				}
+	                    clicked = false;
+					} 
+	            }
             }
             
             function theBall(x, y, color) {
+            	ballNum++;
 	            if (boards[x][y] == 0) {
-		            ball(x, y, color);
-	            	ballNum++;
+                    boards[x][y] = parseInt(color);
+		            var ballA = {
+						'x' : x,
+						'y' : y,
+						'c' : getColor(color),
+						'r' : 0
+		            }
+	                
+		            var renderA = function() {
+		                // Clear the canvas
+						context.clearRect(interVal / 2 * (2 * ballA.x + 1) - interVal / 2 + 1, interVal / 2 * (2 * ballA.y + 1) - interVal / 2 + 1, interVal - 3, interVal - 3);
+		                // Draw the square
+		                if (clicked) {
+							highLight(movingX, movingY, movingColor);
+		                }
+		                context.beginPath();
+		                context.arc(interVal / 2 * (2 * ballA.x + 1), interVal / 2 * (2 * ballA.y + 1), ballA.r, 0, Math.PI * 2, true);
+		                context.closePath();
+		                context.fillStyle = ballA.c;
+		                if (boards[ballA.x][ballA.y] > 0) {
+			                context.fillStyle = getColor(boards[ballA.x][ballA.y]);
+		                }
+		                context.fill();
+		
+		                // Redraw
+		                if (boards[ballA.x][ballA.y] > 0) {
+		                	requestAnimationFrame(renderA);
+		                }
+		            };
+
+		            var animateA = function(prop, val, duration) {
+		                // The calculations required for the step function
+		                var start = new Date().getTime();
+		                var end = start + duration;
+		                var current = ballA[prop];
+		                var distance = val - current;
+		
+		                var step = function() {
+		                    // Get our current progres
+		                    var timestamp = new Date().getTime();
+		                    var progress = Math.min((duration - (end - timestamp)) / duration, 1);
+		
+		                    // Update the square's property
+		                    ballA[prop] = current + (distance * progress);
+		
+		                    // If the animation hasn't finished, repeat the step.
+		                    if (progress < 1 && boards[ballA.x][ballA.y] > 0) requestAnimationFrame(step);
+		                };
+		
+		                // Start the animation
+		                return step();
+		            };
+		            
+	                renderA();
+		            animateA('r', ballA['r'] + radius, 256);
 	            }
             }
 
             function ball(x, y, color) {
-                this.x = x;
-                this.y = y;
-                this.color = color;
-                switch (color) {
-                case 1: // green
-                    context.fillStyle = '#66CDAA';
-                    boards[x][y] = 1;
-                    break;
-                case 2: // blue
-                    context.fillStyle = '#6495ED';
-                    boards[x][y] = 2;
-                    break;
-                case 3: // orange
-                    context.fillStyle = '#FF7F24';
-                    boards[x][y] = 3;
-                    break;
-                case 4: // red
-                    context.fillStyle = '#EE2C2C';
-                    boards[x][y] = 4;
-                    break;
-                case 5: // purple
-                    context.fillStyle = '#9B30FF';
-                    boards[x][y] = 5;
-                    break;
-                case 6: // cyan
-                    context.fillStyle = '#00EEEE';
-                    boards[x][y] = 6;
-                    break;
-                default:
-                    return;
-                }
+                boards[x][y] = parseInt(color);
+                context.fillStyle = getColor(color);
                 context.beginPath();
                 context.arc(interVal / 2 * (2 * x + 1), interVal / 2 * (2 * y + 1), radius, 0, Math.PI * 2, true);
                 context.closePath();
                 context.fill();
             }
+            
+            function getColor(color) {
+                switch (color) {
+                case 1: // green
+                    return '#66CDAA';
+                    break;
+                case 2: // blue
+                    return '#6495ED';
+                    break;
+                case 3: // orange
+                    return '#FF7F24';
+                    break;
+                case 4: // red
+                    return '#EE2C2C';
+                    break;
+                case 5: // purple
+                    return '#9B30FF';
+                    break;
+                case 6: // cyan
+                    return '#00EEEE';
+                    break;
+                default:
+                    return "white";
+                }
+            }
 
 			function rmTheBall(x, y) {
+				var color = boards[x][y];
+                boards[x][y] = 0;
+                var ballA = {
+					'x' : x,
+					'y' : y,
+					'c' : getColor(color),
+					'r' : radius
+                }
+	            var renderA = function() {
+	                // Clear the canvas
+					context.clearRect(interVal / 2 * (2 * ballA.x + 1) - interVal / 2 + 1, 
+									  interVal / 2 * (2 * ballA.y + 1) - interVal / 2 + 1, 
+									  interVal - 3, interVal - 3);
+	                // Draw the square
+	                context.beginPath();
+	                context.arc(interVal / 2 * (2 * ballA.x + 1), interVal / 2 * (2 * ballA.y + 1), ballA.r, 0, Math.PI * 2, true);
+	                context.closePath();
+	                context.fillStyle = ballA.c;
+	                context.fill();
+	
+	                // Redraw
+	                requestAnimationFrame(renderA);
+	            };
+
+	            var animateA = function(prop, val, duration) {
+	                // The calculations required for the step function
+	                var start = new Date().getTime();
+	                var end = start + duration;
+	                var current = ballA[prop];
+	                var distance = val - current;
+	
+	                var step = function() {
+	                    // Get our current progres
+	                    var timestamp = new Date().getTime();
+	                    var progress = Math.min((duration - (end - timestamp)) / duration, 1);
+	
+	                    // Update the square's property
+	                    ballA[prop] = current + (distance * progress);
+	
+	                    // If the animation hasn't finished, repeat the step.
+	                    if (progress < 1) requestAnimationFrame(step);
+	                };
+	
+	                // Start the animation
+	                return step();
+	            };
+	            
+                renderA();
+	            animateA('r', ballA['r'] + 3, 128);
+	            setTimeout(animateA, 140, 'r', ballA['r'] - 3 - radius, 188);
+			}
+			
+			function rmRect(x, y) {
                 boards[x][y] = 0;
                 context.fillStyle = 'white';
                 context.fillRect(x * interVal + 1, y * interVal + 1, interVal - 2, interVal - 2);
@@ -168,10 +318,11 @@
             }
             
             function gameOver() {
-	            if (redoTimes < 3) {
-					if (window.confirm("Gave over! You still have " + (3 - redoTimes)
+	            if (redoTimes < mostRodeTimes) {
+					if (window.confirm("Gave over! You still have " + (mostRodeTimes - redoTimes)
 					 + " redo times, use it? \nClick cancel to start a new game.")) {
 						reDO();
+						forReloadCookie = true;
 					} else {
 						drawNew();
 					}
@@ -184,7 +335,8 @@
             }
 
 			function init() {
-				lines();					
+				lines();
+				initBoard();
 				ballNum = 0;
 				movingColor = 0;
 				moved = false;
@@ -193,24 +345,44 @@
 				rdCleard = false;
 				totalScore = 0;
 				redoTimes = 0;
+				mostRodeTimes = 3;
 				gameover = false;
+				forReloadCookie = true;
 				updateScore();
 				
 				if (testing) {
-					ball(2, 2, 3);
-					ball(5, 3, 4);
-					ball(5, 4, 5);
-					ball(5, 5, 5);
-					ball(2, 5, 2);
-					ball(3, 2, 2);
-					ball(4, 2, 6);
-					ball(5, 2, 1);
+					theBall(2, 2, 3);
+					theBall(5, 3, 4);
+					theBall(5, 4, 5);
+					theBall(5, 5, 5);
+					theBall(2, 5, 2);
+					theBall(3, 2, 2);
+					theBall(4, 2, 6);
+					theBall(5, 2, 1);
 				} else {
-					rdBalls(3);
+					var boardS = getCookie('board');
+					if (boardS != null && boardS != "") {
+						totalScore = parseInt(getCookie('score'));
+						redoTimes = parseInt(getCookie('redo'));
+						updateScore();
+			            for (var i = 0; i < boardS.length; i++) {
+				            if (Math.floor(i % 2) == 0) {
+								var t = parseInt(boardS[i]);
+								if (t > 0) {
+						            var xi = Math.floor(i / 2 / len);
+						            var yi = Math.floor(i / 2 % len);
+									theBall(xi, yi, t);
+								}
+							}
+						}
+					} else {
+						totalScore = 0;
+						rdBalls(3);
+					}
 				}
 			}
 				
-            function drawBoard() {
+            function drawBoard() { // main function is here
                 canvas = document.getElementById("board"); 
                 if (canvas.getContext) {
                     context = canvas.getContext("2d");
@@ -249,28 +421,37 @@
             }
             
             function drawNew() { 
+				setCookie("board", "", 0);
+				setCookie("score", 0, 0);
+				setCookie("redo", 0, 0);
 	            location.reload();
             }
             
             function redo() {
 	            if (prevScore != undefined && moved == true) {
-		            if (redoTimes < 3) {
-						if (window.confirm("After this redo you still have " + (3 - redoTimes - 1) + " redo times")) {
+		            if (redoTimes < mostRodeTimes) {
+						if (window.confirm("After this redo you still have " + (mostRodeTimes - redoTimes - 1) + " redo times")) {
 							reDO();
 						}
 					} else {
-						alert("You have at most 3 redo times");
+						alert("You have at most " + mostRodeTimes + " redo times");
+					}
+				} else {
+		            if (redoTimes < mostRodeTimes) {
+						alert("you still have " + (mostRodeTimes - redoTimes) + " redo times\n(redo only works after you moved a ball IMMEDIATELY)");
+					} else {
+						alert("You have at most " + mostRodeTimes + " redo times");	
 					}
 				}
             }
             
             function reDO() {
-	            clearAll();
+	            clearAll(); // clear balls on the board and redraw 
 	            for (var i = 0; i < len; i++) {
 		            for (var j = 0; j < len; j++) {
 						var t = prevBds[i][j];
 						if (t > 0) {
-							theBall(i, j, t);
+							setTimeout(theBall, 300, i, j, t);
 						}
 					}
 				}
@@ -285,31 +466,40 @@
 				movingX = prevMovingX;
 				movingY = prevMovingY;
 				moved = false;
-				updateScore();
+				gameover = false;
+				updateScore(); 
 				redoTimes++;
+                setTimeout(setCookie, 2, "board", prevBds, 60);
+                setTimeout(setCookie, 2, "score", totalScore, 60);
+                setTimeout(setCookie, 2, "redo", redoTimes, 60);
             }
 
             function hashXY(x, y) {
+	            // hash coordinate x and y to make it easy to judge if positions are eqauls 
 				return (x + parseFloat("0." + y.toString()));
             }
             
             function pos(x, y, parent) {
+	            // position object
 	            this.x = x;
 	            this.y = y;
 	            this.parent = parent;
             }
 
             function vld(x, y) {
+	            // check a position if is valid or not
 	            return x < 8 && y < 8 && x >=0 && y >= 0 && boards[x][y] == 0;
             }
             
             function getDis(x1, y1, x2, y2) {
+	            // get the distance from one position to another position
+	            // actually this is Manhattan Distance, MD = |x1 - x2| + |y1 - y2| * D where D is 1 here
 	            return Math.abs(x1 - x2) + Math.abs(y1 - y2);
             }
 
 
             function _canMove(x, y) {
-	            // A* algorithm from
+	            // A* algorithm idea is studied from below, ALL codes are written by Yuchao
 	            // http://www.gamedev.net/page/resources/_/technical/artificial-intelligence/a-pathfinding-for-beginners-r2003
 	            var t = null;
                 var visited = new Object();
@@ -329,11 +519,11 @@
 						found = true;
 						break;
 					} else {
-						var rf = hashXY(tx + 1, ty);
+						var rf = hashXY(tx + 1, ty); 
 						var lf = hashXY(tx - 1, ty);
 						var uf = hashXY(tx, ty - 1);
 						var df = hashXY(tx, ty + 1);
-						var gOld = getDis(tx, ty, movingX, movingY);
+						var gOld = getDis(tx, ty, movingX, movingY); // distance from start position
 						if (!(rf in visited)) { // right
 							if (vld(tx + 1, ty) && !(rf in open)) {
 								q.push(new pos(tx + 1, ty, t));
@@ -376,6 +566,7 @@
 						}
 					}
 				}
+
 				path = t;
 				if (found) {
 					return true;
@@ -384,11 +575,11 @@
 				}
             }
 
-            function _move(e) {
+            function _move() {
 	            // get the absolute cell position of coordinate x and y
 				var rect = canvas.getBoundingClientRect(); 
-                var xc = e.clientX;
-                var yc = e.clientY;
+	            var xc = event.clientX;
+	            var yc = event.clientY;
                 var x = parseInt((xc - 6 - rect.left) / interVal);
                 var y = parseInt((yc - 8 - rect.top) / interVal);
                 var color = boards[x][y];
@@ -410,14 +601,23 @@
 	                // if clicking a ball
                     highLight(x, y, color);
                     clicked = true;
+                    cleard = false;
                     moved = false;
                     movingColor = color;
                     movingX = x;
                     movingY = y;
 					document.getElementById("test").innerHTML = "";
-                } else if ((!gameover) && color == 0 && clicked) {
+                } else if ((!gameover) && color == 0 && (clicked || (moved && (!clicked) && (!cleard)))) {
 	                // if already clicked a ball before, and clicking empty space
                     if (_canMove(x, y)) {
+		                if (moved) {
+			                // to clear the highlight after moving a ball
+				            context.fillStyle = 'white';
+				            context.fillRect(clearX * interVal + 1, clearY * interVal + 1, interVal - 2, interVal - 2);
+				            if (cleard == false || (rdCleard == true && boards[clearX][clearY] != 0)) {
+			                	ball(clearX, clearY, clearColor);
+			                }
+						}
                         document.getElementById("test").innerHTML = "";
 			            for (var i = 0; i < len; i++) {
 				            for (var j = 0; j < len; j++) {
@@ -459,28 +659,44 @@
 						while (show.length != 0) { // show the path in the above array by draw balls 
 							tmp = show.pop();
 							setTimeout(pathBall, dsts * showInterval + 20, tmp.x, tmp.y);
-							setTimeout(rmTheBall, showInterval * (dsts + 3), tmp.x, tmp.y);
+							setTimeout(rmRect, showInterval * (dsts + 3), tmp.x, tmp.y);
 							dsts = dsts + 1;
 						}
 
 						boards[x][y] = movingColor; // "setTimeout" will make this assignment very late, in "canClear" it will not work
 						setTimeout(highLight, dsts * showInterval + 40, x, y, movingColor);
                         if (canClear(x, y, movingColor, dsts * showInterval + 150) < 5) {
-	                        if (ballNum < len * len - 1) {
+	                        if (ballNum < len * len - 2) {
 		                        setTimeout(rdBalls, showInterval * (dsts + 3), 3);
 	                    	} else {
-		                        gameOver();
+		                    	forReloadCookie = false;
+		                        setTimeout(gameOver, showInterval * (dsts + 3) + 3);
 		                        return;
 	            			}
 	                        if (ballNum == len * len) {
-		                        setTimeout(gameOver, showInterval * (dsts + 3));
+		                    	forReloadCookie = false;
+		                        setTimeout(gameOver, showInterval * (dsts + 3) + 3);
 		                        return;
 	                        }
+	                    } else {
+		                    boards[x][y] = 0;
+		                    clicked = false;
 	                    }
+	                    setTimeout(setCks, showInterval * (dsts + 3) + 3);
+	                    movingX = x;
+	                    movingY = y;
                     } else {
                         document.getElementById("test").innerHTML = "can not move";
                     }
                 }
+            }
+            
+            function setCks() {
+	            if (forReloadCookie) {
+	                setCookie("board", boards, 60);
+	                setCookie("score", totalScore, 60);
+	                setCookie("redo", redoTimes, 60);
+	            }
             }
             
             function canClear(x, y, color, time) {
@@ -578,6 +794,9 @@
 	            	for (var t = hStart; t < hStart + hNum; t++) {
 		            	setTimeout(rmBall, time, x, t);
 	            	}
+	                setTimeout(setCookie, time, "board", boards, 60);
+	                setTimeout(setCookie, time, "score", totalScore, 60);
+	                setTimeout(setCookie, time, "redo", redoTimes, 60);
 	            }
 	            if (rmV) {
 		            // if we can remove vertically just do it
@@ -585,6 +804,9 @@
 	            	for (var t = vStart; t < vStart + vNum; t++) {
 		            	setTimeout(rmBall, time, t, y);
 	            	}
+	                setTimeout(setCookie, time, "board", boards, 60);
+	                setTimeout(setCookie, time, "score", totalScore, 60);
+	                setTimeout(setCookie, time, "redo", redoTimes, 60);
 	            }
 
 	            // return the amount of scoring alignment balls
@@ -645,32 +867,34 @@
                 exdate.setDate(exdate.getDate() + expiredays);
                 document.cookie = c_name + "=" + escape(value) + ((expiredays == null) ? "" : ";expires=" + exdate.toGMTString());
             }
+            
+			function browserRedirect() {
+		        document.getElementById("helpImg").onclick = function() {
+			        alert("when there are horizontally or vertically aligning at least 5 balls with the same color, you get the score")
+		        }
+	            var userAgent = navigator.userAgent.toLowerCase();
+	            var m = userAgent.match(/mobile/) == "mobile";
+	            var ipad = userAgent.match(/ipad/i) == "iPad";
+	            var iphone = userAgent.match(/iphone os/i) == "iPhone";
+	            var midp = userAgent.match(/midp/i) == "midp";
+	            var rv = userAgent.match(/rv:1.2.3.4/i) == "rv:1.2.3.4";
+	            var uc = userAgent.match(/ucweb/i) == "ucweb";
+	            var android = userAgent.match(/android/i) == "android";
+	            var ce = userAgent.match(/windows ce/i) == "windows ce";
+	            var wm = userAgent.match(/windows mobile/i) == "windows mobile";
+	            if (ipad || iphone || midp || rv || uc || android || ce || wm || m) { 
+		            // mobile
+	                document.getElementById("test2").style.height = "29px";
+	                document.getElementById("mid").style.height = "26px";
+	            } else { 
+		            // pc
+		        }
+	        }
+	        browserRedirect();	        
         </script>
-	</head>
-
-    <body onload="drawBoard()">
-		<div id="boards">
-	        <canvas id="board" width=640 height=640 onclick="_move(event)">not supporting with canvas</canvas>
-			<div id="score">
-	            <table align="center">
-	                <tr height=52></tr>
-	                <tr><td align="center" id="scoreText" colspan="2">Score</td></tr>
-	                <tr><td align="center" id="nowScore" colspan="2"></td></tr>
-	                <tr height=21></tr>
-	                <tr><td align="center" id="highestText" colspan="2">Highest Score</td></tr>
-	                <tr><td align="center" id="highScore" colspan="2"></td></tr>
-	                <tr><td align="center" id="test" colspan="2"></td></tr>
-	                <tr><td align="center" id="test2" colspan="2"></td></tr>
-	                <tr>
-	                    <td align="center" id="redo" onmousedown="redo()"><a>redo</a></td>
-	                    <td align="center" id="restart" onmousedown="restart()"><a>restart</a></td>
-	                </tr>
-	            </table>
-	        </div>
-		</div>
 
         <style type="text/css"> 
-	        div#boards {
+	        div#boards { 
 		        top: 24px;
 		        width: 100%;
 		        text-align: center;
@@ -685,10 +909,31 @@
 				display: inline;
 	        } 
 	        
+	        div#side {
+				display: inline-block;
+	        }
+	        
+	        div#help {
+		        position: relative;
+				top: -237px;
+				left: 70px;
+	        }
+	        img#helpImg {
+		        width: 56px;
+		        cursor: pointer;
+				transition:width 0.3s ease;	/* words transition */
+				-moz-transition:width 0.3s; /* Firefox 4 */
+				-webkit-transition:width 0.3s; /* Safari and Chrome */
+				-o-transition:width 0.3s; /* Opera */
+	        }
+	        img#helpImg:hover {
+		        width: 66px;
+	        }
+	        
             div#score { 
             	position: relative;
             	top: -153px;
-            	left: -4px;
+            	left: -5px;
             	width: 210px; 
             	height: 340px;
 	            background-color: teal;
@@ -773,7 +1018,8 @@
 	            border-radius: 3px;
 	            cursor: pointer;
 	        }
-	        
+
+			p 			{ color: #464544; }
 			a:link 		{ color: #331818; text-decoration:none; }
 			a:visited 	{ color: #331818; text-decoration:none; }
 			a:hover 	{ color: #404142; text-decoration:none; }
@@ -784,6 +1030,6 @@
 				-webkit-transition:color 0.3s; /* Safari and Chrome */
 				-o-transition:color 0.3s; /* Opera */
 			}
-        </style>
+		</style>
     </body>
 </html>
